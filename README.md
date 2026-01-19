@@ -1,6 +1,6 @@
 # basic optimizers in JAX 
 
-~~A library~~ an excuse for me to learn JAX by writing a few optimization algorithms. 
+A few classic optimizers in JAX.
 
 ## TODO 
 

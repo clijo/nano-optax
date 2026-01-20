@@ -18,5 +18,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "mkdocs-material>=9.7.1",
+    "mkdocstrings[python]>=1.0.1",
     "ruff>=0.14.13",
 ]

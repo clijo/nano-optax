@@ -9,4 +9,8 @@ wheels/
 # Virtual environments
 .venv
 
+# MacOs stuff
 .DS_Store
+
+# Documentation
+site/

@@ -1,5 +1,5 @@
 import jax.numpy as jnp
-from nano_optax.gd import GD
+from nano_optax import GD
 
 
 def run_test():

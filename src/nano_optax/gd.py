@@ -1,19 +1,51 @@
 import jax
+from typing import Callable
 from .base import Solver
 from .types import OptResult, PyTree
 
 
 class GD(Solver):
-    """Vanilla Gradient Descent solver.
+    r"""Vanilla Gradient Descent (GD) solver.
 
     Updates parameters using the full dataset at each step.
+
+    The update rule for parameter $\theta$ at step $t$ is:
+
+    $$
+    \theta_{t+1} = \theta_t - \eta \nabla \mathcal{L}(\theta_t; \mathcal{D})
+    $$
+
+    where $\mathcal{D}$ is the entire dataset.
+
+    Attributes:
+        step_size (float): The learning rate $\eta$.
+        max_epochs (int): Maximum number of epochs to train.
+        tol (float): Tolerance for convergence based on loss change.
+        verbose (bool): Whether to print progress.
     """
 
     def __init__(self, step_size=1e-3, max_epochs=100, **kwargs):
         super().__init__(step_size, **kwargs)
         self.max_epochs = max_epochs
 
-    def minimize(self, fun, init_params: PyTree, data: tuple, max_epochs: int = None):
+    def minimize(
+        self,
+        fun: Callable,
+        init_params: PyTree,
+        data: tuple,
+        max_epochs: int = None,
+    ) -> OptResult:
+        """Minimize the function using vanilla Gradient Descent.
+
+        Args:
+            fun: A function f(params, *data) -> (loss, aux) or loss.
+            init_params: Initial parameters (PyTree).
+            data: Tuple of data arrays (e.g. (X, y)).
+            max_epochs: Override the instance's max_epochs.
+
+        Returns:
+            OptResult: The optimization result.
+        """
         params = init_params
         loss_trace = []
 

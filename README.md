@@ -1,12 +1,12 @@
 # basic optimizers in JAX 
 
-A few classic optimizers in JAX.
+Classic optimizers in JAX.
 
 ## TODO 
 
 Algorithms:
 - [x] Gradient Descent
-- [ ] SGD
+- [x] SGD
 - [ ] Proximal Gradient Descent
 - [ ] Accelerated Gradient Descent (a la Nesterov)
 - [ ] SAGA, SVRG (variance reduction)

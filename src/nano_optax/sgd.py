@@ -1,7 +1,9 @@
 import jax
+import jax.numpy as jnp
 from typing import Callable
+
 from .base import Solver
-from .types import OptResult, PyTree
+from .types import OptResult, PyTree, LearningRate
 
 
 class SGD(Solver):
@@ -10,17 +12,28 @@ class SGD(Solver):
     Updates parameters using minibatches at each step. By default, it runs
     pure SGD with a batch size of 1. Adjust `batch_size` in the `minimize` method.
 
-    An epoch still corresponds to an entire pass over the data, but now consists
-    of $\lceil n / \text{batch_size} \rceil$ gradient steps, instead of 1 as in vanilla GD.
+    An epoch corresponds to an entire pass over the data, consisting of
+    $\lceil \#(\mathcal{D}) / \text{batch_size} \rceil$ gradient steps.
 
-    Attributes:
-        step_size (float): The learning rate $\eta$.
-        max_epochs (int): Maximum number of epochs to train.
-        tol (float): Tolerance for convergence based on loss change.
-        verbose (bool): Whether to print progress.
+    The learning rate can be constant or follow a schedule based on the global
+    step count (each gradient step in each epoch).
     """
 
-    def __init__(self, step_size=1e-3, max_epochs=100, **kwargs):
+    def __init__(
+        self,
+        step_size: LearningRate = 1e-3,
+        max_epochs: int = 100,
+        **kwargs,
+    ) -> None:
+        """Initialize the SGD solver.
+
+        Args:
+            step_size: The learning rate. Can be a float for constant LR,
+                or a callable `schedule(step) -> float` for dynamic LR.
+            max_epochs: Maximum number of epochs to train.
+            **kwargs: Additional arguments passed to the base Solver
+                (e.g., `tol`, `verbose`).
+        """
         super().__init__(step_size, **kwargs)
         self.max_epochs = max_epochs
 
@@ -29,107 +42,111 @@ class SGD(Solver):
         fun: Callable,
         init_params: PyTree,
         data: tuple,
-        max_epochs: int = None,
+        max_epochs: int | None = None,
         batch_size: int = 1,
-        key: jax.Array = None,
+        key: jax.Array | None = None,
     ) -> OptResult:
-        """Minimize the function using SGD.
+        """Minimize the function using Stochastic Gradient Descent.
 
         Args:
-            fun: A function f(params, *data) -> (loss, aux) or loss.
+            fun: A function f(params, *data) -> loss.
             init_params: Initial parameters (PyTree).
-            data: Tuple of data arrays (e.g. (X, y)).
+            data: Tuple of data arrays (e.g., (X, y)).
             max_epochs: Override the instance's max_epochs.
-            batch_size: Size of minibatches. Default 1.
+            batch_size: Size of minibatches.
             key: PRNGKey for shuffling data. Required for non-deterministic shuffling.
 
         Returns:
-            OptResult: The optimization result.
+            The optimization result.
         """
-        params = init_params
-        loss_trace = []
-        
         epochs = max_epochs if max_epochs is not None else self.max_epochs
 
-        # Prepare batching helper
+        # Batching setup
         num_samples = len(data[0])
         num_batches = num_samples // batch_size
         remainder_size = num_samples % batch_size
         truncated_size = num_batches * batch_size
 
+        # Normalize step_size to a schedule function
+        schedule_fn = (
+            self.step_size if callable(self.step_size) else lambda _: self.step_size
+        )
+
         if self.verbose:
-            msg = f"Dataset size: {num_samples}. Batch size: {batch_size}. Using {num_batches} full batches"
+            msg = f"Dataset: {num_samples} samples, batch_size={batch_size}, {num_batches} batches"
             if remainder_size > 0:
-                msg += f" and a remainder of {remainder_size}."
+                msg += f" (+{remainder_size} remainder)"
             print(msg)
 
-        def prepare_batches(data, key=None):
-            # shuffle if key is provided
-            if key is not None:
-                perm = jax.random.permutation(key, num_samples)
-                # apply permutation to all arrays in data tuple
+        @jax.jit
+        def train_step(carry, batch):
+            """Single gradient step on one batch."""
+            params, step = carry
+            lr = schedule_fn(step)
+            val, grads = jax.value_and_grad(fun)(params, *batch)
+            new_params = jax.tree_util.tree_map(lambda p, g: p - lr * g, params, grads)
+            return (new_params, step + 1), val
+
+        @jax.jit
+        def run_epoch(params, step, batched_data):
+            """Run all batches in an epoch via lax.scan."""
+            (params, step), vals = jax.lax.scan(
+                train_step, (params, step), batched_data
+            )
+            return params, step, vals
+
+        def prepare_batches(data, shuffle_key=None):
+            """Shuffle and reshape data into batches."""
+            if shuffle_key is not None:
+                perm = jax.random.permutation(shuffle_key, num_samples)
                 data = jax.tree_util.tree_map(lambda x: x[perm], data)
 
-            # Split into main part and remainder
-            main_data = jax.tree_util.tree_map(lambda x: x[:truncated_size], data)
-            remainder_data = (
+            main = jax.tree_util.tree_map(lambda x: x[:truncated_size], data)
+            remainder = (
                 jax.tree_util.tree_map(lambda x: x[truncated_size:], data)
                 if remainder_size > 0
                 else None
             )
-
-            # Reshape the main part for scanning
-            def reshape_batch(arr):
-                return arr.reshape((num_batches, batch_size) + arr.shape[1:])
-
-            batched_main = jax.tree_util.tree_map(reshape_batch, main_data)
-            return batched_main, remainder_data
-
-        # pre-compile gradient step
-        @jax.jit
-        def train_step(params, batch):
-            val, grads = jax.value_and_grad(fun)(params, *batch)
-            new_params = jax.tree_util.tree_map(
-                lambda p, g: p - self.step_size * g, params, grads
+            batched = jax.tree_util.tree_map(
+                lambda x: x.reshape((num_batches, batch_size) + x.shape[1:]), main
             )
-            return new_params, val
+            return batched, remainder
 
-        @jax.jit
-        def epoch_scan(params, batched_data):
-            # scan takes (carry, x) -> (carry, y)
-            final_params, losses = jax.lax.scan(
-                f=train_step, init=params, xs=batched_data
-            )
-            return final_params, losses
+        # Opt loop
 
-        # Optimization loop
+        params = init_params
+        step = jnp.array(0)
+        val_trace = []
         current_key = key
+
         for epoch in range(epochs):
-            step_key = None
+            # Shuffle data each epoch
+            shuffle_key = None
             if current_key is not None:
-                current_key, step_key = jax.random.split(current_key)
+                current_key, shuffle_key = jax.random.split(current_key)
 
-            # Prepare batches for this epoch
-            batched_data, remainder_data = prepare_batches(data, step_key)
+            batched_data, remainder = prepare_batches(data, shuffle_key)
 
-            params, batch_losses = epoch_scan(params, batched_data)
+            # Main batches
+            params, step, batch_vals = run_epoch(params, step, batched_data)
+            total_val = jnp.sum(batch_vals) * batch_size
 
-            # Average the loss over the entire dataset
-            total_loss_sum = jax.numpy.sum(batch_losses) * batch_size
+            # Remainder batch
+            if remainder is not None:
+                (params, step), rem_val = train_step((params, step), remainder)
+                total_val += rem_val * remainder_size
 
-            if remainder_data is not None:
-                params, rem_loss = train_step(params, remainder_data)
-                total_loss_sum += rem_loss * remainder_size
-
-            epoch_loss = total_loss_sum / num_samples
-            loss_trace.append(epoch_loss)
+            epoch_val = total_val / num_samples
+            val_trace.append(epoch_val)
 
             if self.verbose:
-                print(f"Epoch {epoch}: Loss = {epoch_loss:.5f}")
+                lr = float(schedule_fn(int(step) - 1))
+                print(f"Epoch {epoch}: val={float(epoch_val):.6f}, lr={lr:.6f}")
 
-            if epoch > 0 and abs(loss_trace[-2] - loss_trace[-1]) < self.tol:
+            # Convergence check
+            if epoch > 0 and abs(val_trace[-2] - val_trace[-1]) < self.tol:
                 if self.verbose:
-                    print(f"Converged at epoch {epoch} with loss {epoch_loss:.5f}")
+                    print(f"Converged at epoch {epoch}")
                 break
 
-        return OptResult(params=params, final_loss=epoch_loss, trace=loss_trace)
+        return OptResult(params=params, final_loss=epoch_val, trace=val_trace)

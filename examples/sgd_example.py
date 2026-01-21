@@ -22,8 +22,12 @@ def run_test():
         return jnp.mean((pred - y) ** 2)
 
     init_params = {"w": jnp.array([0.0])}
-
-    solver = SGD(step_size=0.1, max_epochs=50, verbose=True, tol=1e-5)
+    solver = SGD(
+        step_size=lambda step: 0.1 * jnp.exp(-0.01 * step),
+        max_epochs=50,
+        verbose=True,
+        tol=1e-5,
+    )
 
     print("Starting minimization (SGD with minibatches)...")
     try:
@@ -38,9 +42,9 @@ def run_test():
         w_err = jnp.abs(result.params["w"] - true_w)
         print(f"Error in w: {w_err}")
         if w_err < 0.01:
-            print("SUCCESS: Converged to correct parameters.")
+            print("SUCCESS.")
         else:
-            print("FAILURE: Did not converge to correct parameters.")
+            print("FAILURE.")
 
     except Exception as e:
         print(f"Optimization failed with error: {e}")

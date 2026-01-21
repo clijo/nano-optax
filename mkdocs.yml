@@ -31,10 +31,19 @@ plugins:
           options:
             docstring_style: google
             heading_level: 3
+            show_signature_annotations: true
+            signature_crossrefs: true
+            separate_signature: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            members_order: source
+            merge_init_into_class: true
+            show_root_heading: true
+            show_root_full_path: false
 
 markdown_extensions:
   - toc:
-      toc_depth: 3
+      toc_depth: 4
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span

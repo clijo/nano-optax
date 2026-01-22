@@ -25,8 +25,7 @@ class SGD(Solver):
         max_epochs: int = 100,
         **kwargs,
     ) -> None:
-        """Initialize the SGD solver.
-
+        """
         Args:
             step_size: The learning rate. Can be a float for constant LR,
                 or a callable `schedule(step) -> float` for dynamic LR.
@@ -136,12 +135,12 @@ class SGD(Solver):
                 (params, step), rem_val = train_step((params, step), remainder)
                 total_val += rem_val * remainder_size
 
-            epoch_val = total_val / num_samples
+            epoch_val = float(total_val / num_samples)
             val_trace.append(epoch_val)
 
             if self.verbose:
                 lr = float(schedule_fn(int(step) - 1))
-                print(f"Epoch {epoch}: val={float(epoch_val):.6f}, lr={lr:.6f}")
+                print(f"Epoch {epoch}: val={epoch_val:.6f}, lr={lr:.6f}")
 
             # Convergence check
             if epoch > 0 and abs(val_trace[-2] - val_trace[-1]) < self.tol:

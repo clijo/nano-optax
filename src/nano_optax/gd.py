@@ -26,8 +26,7 @@ class GD(Solver):
         max_epochs: int = 100,
         **kwargs,
     ) -> None:
-        """Initialize the GD solver.
-
+        """
         Args:
             step_size: The learning rate. Can be a float for constant LR,
                 or a callable `schedule(step) -> float` for dynamic LR.

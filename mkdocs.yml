@@ -22,6 +22,9 @@ theme:
         icon: material/brightness-7
         name: Switch to dark mode
   features:
+    - navigation.expand
+    - navigation.top
+    - toc.follow
     - content.code.copy
 
 plugins:

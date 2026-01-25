@@ -115,14 +115,12 @@ class ProxGD(Solver):
 
     def __init__(
         self,
-        prox: Callable[[jax.Array, jax.Array], jax.Array],
         lr: LearningRate = 1e-3,
         max_epochs: int = 100,
         **kwargs,
     ) -> None:
         r"""
         Args:
-            prox: Proximal operator of `g`, a callable, that takes $(x, \eta)$ and returns $\operatorname{prox}_{\eta g}(x)$.
             lr: Learning rate input. Can be a float for constant LR, a callable
                 `schedule(step) -> lr`, a callable
                 `schedule(step, state) -> (lr, new_state)`, or an LRScheduler.
@@ -130,13 +128,13 @@ class ProxGD(Solver):
             **kwargs: Base solver arguments (tol, verbose).
         """
         super().__init__(lr, **kwargs)
-        self.prox = prox
         self.max_epochs = max_epochs
 
     def minimize(
         self,
         fun: Callable[..., jax.Array],
         g: Callable[[PyTree], jax.Array],
+        prox: Callable[[jax.Array, jax.Array], jax.Array],
         init_params: PyTree,
         data: tuple[jax.Array, ...],
         max_epochs: int | None = None,
@@ -152,6 +150,7 @@ class ProxGD(Solver):
             fun: Smooth objective function with signature `f(params, *data) -> scalar`.
             g: Proper, closed, and convex objective component with signature
                 `g(params) -> scalar`.
+            prox: Proximal operator of `g`, a callable, that takes $(x, \eta)$ and returns $\operatorname{prox}_{\eta g}(x)$.
             init_params: Initial parameters (PyTree).
             data: Tuple of data arrays (e.g., `(X, y)`). All arrays must have
                 the same length along axis 0 (number of samples).
@@ -242,7 +241,7 @@ class ProxGD(Solver):
                     (params, step, schedule_state),
                     full_indices,
                     data,
-                    self.prox,
+                    prox,
                     scheduler,
                     fun,
                     g,
@@ -256,7 +255,7 @@ class ProxGD(Solver):
                     (params, step, schedule_state),
                     rem_indices,
                     data,
-                    self.prox,
+                    prox,
                     scheduler,
                     fun,
                     g,

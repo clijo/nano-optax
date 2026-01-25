@@ -30,7 +30,6 @@ def run_test():
     init_params = jnp.zeros((num_features,))
 
     solver = ProxGD(
-        prox=ProxL1(reg),
         lr=0.1,
         max_epochs=200,
         verbose=True,
@@ -40,7 +39,13 @@ def run_test():
     print("Starting minimization (L1-regularized least squares)...")
     try:
         result = solver.minimize(
-            smooth_loss, nonsmooth_loss, init_params, data, batch_size=None, key=key
+            smooth_loss,
+            nonsmooth_loss,
+            ProxL1(reg),
+            init_params,
+            data,
+            batch_size=None,
+            key=key,
         )
         print("Final value (full objective):", result.final_value)
         print("True w (first 5):", jax.device_get(true_w[:5]))

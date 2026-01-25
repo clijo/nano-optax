@@ -2,7 +2,9 @@ site_name: Nano Optax
 
 nav:
   - Home: index.md
-  - API Reference: api.md
+  - Reference:
+      - Solvers: solvers.md
+      - Schedulers: schedulers.md
 
 theme:
   name: material

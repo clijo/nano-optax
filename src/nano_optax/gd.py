@@ -1,8 +1,10 @@
 import jax
+import jax.numpy as jnp
 from typing import Callable
 
 from .base import Solver
-from .types import OptResult, PyTree, LearningRate
+from .schedulers import as_schedule
+from .types import OptResult, PyTree, LearningRate, ScheduleState
 
 
 class GD(Solver):
@@ -18,6 +20,12 @@ class GD(Solver):
 
     where $\mathcal{D}$ is the entire dataset and $\eta_t$ is the learning rate
     at step $t$ (which may be constant or follow a schedule).
+
+    Attributes:
+        step_size: Learning rate (constant, schedule, or LRScheduler).
+        max_epochs: Maximum number of training epochs.
+        tol: Convergence tolerance on epoch value change.
+        verbose: Whether to print training progress.
     """
 
     def __init__(
@@ -26,10 +34,11 @@ class GD(Solver):
         max_epochs: int = 100,
         **kwargs,
     ) -> None:
-        """
+        """Initialize the GD solver.
+
         Args:
             step_size: The learning rate. Can be a float for constant LR,
-                or a callable `schedule(step) -> float` for dynamic LR.
+                a callable `schedule(step) -> float`, or an LRScheduler.
             max_epochs: Maximum number of epochs to train.
             **kwargs: Additional arguments passed to the base Solver
                 (e.g., `tol`, `verbose`).
@@ -43,6 +52,7 @@ class GD(Solver):
         init_params: PyTree,
         data: tuple,
         max_epochs: int | None = None,
+        schedule_state: ScheduleState | None = None,
     ) -> OptResult:
         """Minimize the function using vanilla Gradient Descent.
 
@@ -51,37 +61,35 @@ class GD(Solver):
             init_params: Initial parameters (PyTree).
             data: Tuple of data arrays (e.g., (X, y)).
             max_epochs: Override the instance's max_epochs.
+            schedule_state: Optional initial state for a stateful schedule.
 
         Returns:
             The optimization result.
         """
         epochs = max_epochs if max_epochs is not None else self.max_epochs
 
-        # Normalize step_size to a schedule function
-        schedule_fn = (
-            self.step_size if callable(self.step_size) else lambda _: self.step_size
-        )
+        schedule_fn, schedule_state = as_schedule(self.step_size, schedule_state)
 
         @jax.jit
-        def update(params, lr, *args):
+        def step(params, lr, *args):
             val, grads = jax.value_and_grad(fun)(params, *args)
-            new_params = jax.tree_util.tree_map(lambda p, g: p - lr * g, params, grads)
+            new_params = jax.tree.map(lambda p, g: p - lr * g, params, grads)
             return new_params, val
 
         params = init_params
-        val_trace = []
+        trace = []
 
         for epoch in range(epochs):
-            lr = schedule_fn(epoch)
-            params, val = update(params, lr, *data)
-            val_trace.append(val)
+            lr, schedule_state = schedule_fn(jnp.array(epoch), schedule_state)
+            params, val = step(params, lr, *data)
+            trace.append(float(val))
 
             if self.verbose:
-                print(f"Epoch {epoch}: val={float(val):.6f}, lr={lr:.6f}")
+                print(f"Epoch {epoch}: val={trace[-1]:.6e}, lr={float(lr):.6e}")
 
-            if epoch > 0 and abs(val_trace[-2] - val_trace[-1]) < self.tol:
+            if epoch > 0 and abs(trace[-2] - trace[-1]) < self.tol:
                 if self.verbose:
                     print(f"Converged at epoch {epoch}")
                 break
 
-        return OptResult(params=params, final_loss=val, trace=val_trace)
+        return OptResult(params=params, final_value=trace[-1], trace=trace)

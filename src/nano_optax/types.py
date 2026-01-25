@@ -1,15 +1,40 @@
-from typing import Any, List, NamedTuple, Union, Callable
+from typing import Any, Callable, NamedTuple, Union, TYPE_CHECKING
 
-# Type alias for JAX PyTrees (nested structures of arrays)
-# type for PyTree is complex to define in Python, so we make do with Any
+import jax
+
 PyTree = Any
+"""Type alias for JAX PyTrees (nested structures of arrays)."""
 
-# Type alias for learning rate: either a constant or a schedule function
-LearningRate = Union[float, Callable[[int], float]]
+if TYPE_CHECKING:
+    from .schedulers import LRScheduler
+
+ScheduleState = PyTree
+"""State carried by a schedule function."""
+
+ScheduleFn = Callable[[jax.Array, ScheduleState], tuple[jax.Array, ScheduleState]]
+"""Schedule function that returns (lr, new_state)."""
+
+LearningRate = Union[
+    float,
+    jax.Array,
+    Callable[[jax.Array], jax.Array],
+    "LRScheduler",
+    ScheduleFn,
+]
+"""Learning rate: constant, schedule function, or scheduler."""
 
 
 class OptResult(NamedTuple):
+    """Optimization result container.
+
+    Attributes:
+        params: Final optimized parameters.
+        final_value: Final objective value.
+        trace: History of objective values per epoch.
+        success: Whether optimization terminated without errors.
+    """
+
     params: PyTree
-    final_loss: float
-    trace: List[float]
+    final_value: float
+    trace: list[float]
     success: bool = True

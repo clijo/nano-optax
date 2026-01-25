@@ -12,7 +12,7 @@ uv add nano-optax
 ```python
 import jax
 import jax.numpy as jnp
-from nano_optax import SGD
+from nano_optax import SGD, StepLR
 
 # 1. Setup Data
 key = jax.random.PRNGKey(0)
@@ -30,10 +30,14 @@ def loss_fun(params, x, y):
 
 # 3. Minimize
 init_params = {"w": jnp.array([0.0])}
-solver = SGD(step_size=0.1)
+solver = SGD(step_size=StepLR(base_lr=0.1, step_size=1000, gamma=0.5))
 result = solver.minimize(
-            loss_fun, init_params, data, 
-            batch_size=16, key=jax.random.PRNGKey(42)
-        )
+    loss_fun, init_params, data,
+    batch_size=16, key=jax.random.PRNGKey(42)
+)
 print(result.params)
 ```
+
+## Schedulers
+
+See [Schedulers](schedulers.md) for learning-rate schedule utilities and examples.

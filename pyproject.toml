@@ -23,3 +23,6 @@ dev = [
     "ruff>=0.14.13",
     "ty>=0.0.13",
 ]
+
+[tool.ty.src]
+exclude = ["src/nano_optax/sgd.py"]

@@ -22,7 +22,7 @@ def run_test():
     try:
         result = solver.minimize(loss_fun, init_params, data)
         print("Final params:", result.params)
-        print("Final loss:", result.final_loss)
+        print("Final value:", result.final_value)
     except Exception as e:
         print(f"Optimization failed with error: {e}")
         import traceback

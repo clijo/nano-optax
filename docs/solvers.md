@@ -23,3 +23,17 @@ To use stateful schedules, pass `schedule_state` and a schedule function that re
 ## Proximal Gradient Descent
 
 ::: nano_optax.prox_gd.ProxGD
+
+### Proximal operators
+
+Use these helpers to build `prox` functions for `ProxGD`.
+
+```python
+prox_l1 = ProxL1(reg=1.0)
+prox_l2 = ProxL2(reg=0.1)
+```
+
+::: nano_optax.prox_gd.ProxL1
+
+::: nano_optax.prox_gd.ProxL2
+

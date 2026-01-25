@@ -297,10 +297,19 @@ class ProxGD(Solver):
         )
 
 
-def ProxL1(reg: float = 1):
+def ProxL1(reg: float = 1) -> Callable[[jax.Array, jax.Array], jax.Array]:
     r"""
-    Returns the proximal operator for $\text{reg} \| \cdot \|_{1}$.
+    Returns the proximal operator for $\text{reg} \times \| \cdot \|_{1}$.
     """
     if reg < 0:
         raise ValueError("Regularization coefficient must be nonnegative.")
     return lambda x, lr: jnp.sign(x) * jnp.maximum(0, jnp.abs(x) - reg * lr)
+
+
+def ProxL2(reg: float = 1) -> Callable[[jax.Array, jax.Array], jax.Array]:
+    r"""
+    Returns the proximal operator for $\text{reg} \times \| \cdot \|_{2}^{2}$.
+    """
+    if reg < 0:
+        raise ValueError("Regularization coefficient must be nonnegative.")
+    return lambda x, lr: x / (1 + (2 * reg * lr))

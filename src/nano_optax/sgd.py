@@ -83,7 +83,7 @@ class SGD(Solver):
 
     Minimizes an objective function using minibatch gradient descent:
 
-    $$\theta_{t+1} = \theta_t - \eta_t \nabla_\theta f(\theta_t; \mathcal{B}_t)$$
+    $$\theta_{t+1} := \theta_t - \eta_t \nabla_\theta f(\theta_t; \mathcal{B}_t)$$
 
     where $\mathcal{B}_t$ is a randomly sampled minibatch at step $t$.
 

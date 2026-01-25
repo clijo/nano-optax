@@ -15,7 +15,7 @@ class GD(Solver):
     The update rule for parameter $\theta$ at step $t$ is:
 
     $$
-    \theta_{t+1} = \theta_t - \eta_t \nabla \mathcal{L}(\theta_t; \mathcal{D})
+    \theta_{t+1} := \theta_t - \eta_t \nabla \mathcal{L}(\theta_t; \mathcal{D})
     $$
 
     where $\mathcal{D}$ is the entire dataset and $\eta_t$ is the learning rate

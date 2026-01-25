@@ -2,6 +2,7 @@ import jax
 import jax.numpy as jnp
 from nano_optax import SGD, StepLR
 
+
 def run_test():
     # Synthetic regression: nonlinear target with a small MLP.
     key = jax.random.PRNGKey(0)

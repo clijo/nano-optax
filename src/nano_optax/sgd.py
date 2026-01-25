@@ -15,7 +15,9 @@ def _opt_step(
     carry: tuple[PyTree, jax.Array, ScheduleState | None],
     indices: jax.Array,
     data: tuple[jax.Array, ...],
-    scheduler: Callable[[jax.Array, ScheduleState | None], tuple[jax.Array, ScheduleState | None]],
+    scheduler: Callable[
+        [jax.Array, ScheduleState | None], tuple[jax.Array, ScheduleState | None]
+    ],
     fun: Callable[..., jax.Array],
 ) -> tuple[tuple[PyTree, jax.Array, ScheduleState | None], tuple[jax.Array, jax.Array]]:
     """Single gradient step on one minibatch.
@@ -43,7 +45,9 @@ def _run_epoch(
     carry: tuple[PyTree, jax.Array, ScheduleState | None],
     batched_indices: jax.Array,
     data: tuple[jax.Array, ...],
-    scheduler: Callable[[jax.Array, ScheduleState | None], tuple[jax.Array, ScheduleState | None]],
+    scheduler: Callable[
+        [jax.Array, ScheduleState | None], tuple[jax.Array, ScheduleState | None]
+    ],
     fun: Callable[..., jax.Array],
 ) -> tuple[PyTree, jax.Array, ScheduleState | None, jax.Array, jax.Array]:
     """Run all batches in an epoch via lax.scan.
@@ -61,7 +65,9 @@ def _run_epoch(
 
     def scan_body(
         c: tuple[PyTree, jax.Array, ScheduleState | None], idx: jax.Array
-    ) -> tuple[tuple[PyTree, jax.Array, ScheduleState | None], tuple[jax.Array, jax.Array]]:
+    ) -> tuple[
+        tuple[PyTree, jax.Array, ScheduleState | None], tuple[jax.Array, jax.Array]
+    ]:
         return _opt_step(c, idx, data, scheduler, fun)
 
     (params, step, schedule_state), (batch_vals, lr_vals) = jax.lax.scan(

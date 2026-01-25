@@ -105,7 +105,9 @@ def as_schedule(
     | Callable[[jax.Array, object], tuple[jax.Array, object]]
     | LRScheduler,
     schedule_state: object | None = None,
-) -> tuple[Callable[[jax.Array, object | None], tuple[jax.Array, object | None]], object | None]:
+) -> tuple[
+    Callable[[jax.Array, object | None], tuple[jax.Array, object | None]], object | None
+]:
     """Normalize to a pure schedule function with explicit state.
 
     Returns a function `(step, state) -> (lr, new_state)` and the initial state.
@@ -119,8 +121,10 @@ def as_schedule(
         if schedule_state is not None and _expects_state(step_size):
             schedule_fn = step_size
         else:
+
             def schedule_fn(step, state):
                 return step_size(step), state
+
         return schedule_fn, schedule_state
 
     scheduler = as_scheduler(step_size)

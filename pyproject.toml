@@ -25,4 +25,4 @@ dev = [
 ]
 
 [tool.ty.src]
-exclude = ["src/nano_optax/sgd.py"]
+exclude = ["src/nano_optax/sgd.py", "src/nano_optax/prox_gd.py"]

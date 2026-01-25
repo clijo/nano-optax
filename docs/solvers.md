@@ -19,3 +19,7 @@ To use stateful schedules, pass `schedule_state` and a schedule function that re
 ## Stochastic Gradient Descent
 
 ::: nano_optax.sgd.SGD
+
+## Proximal Gradient Descent
+
+::: nano_optax.prox_gd.ProxGD

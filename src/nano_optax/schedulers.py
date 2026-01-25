@@ -1,22 +1,22 @@
 from __future__ import annotations
 
+import inspect
 from abc import ABC, abstractmethod
 from typing import Callable, cast
-import inspect
 
 import jax
 import jax.numpy as jnp
 
 
 class LRScheduler(ABC):
-    """Base class for learning rate schedulers (pure, functional API)."""
+    """Base class for learning rate schedulers."""
 
     def __init__(self, base_lr: float | jax.Array) -> None:
         self.base_lr = jnp.array(base_lr)
 
     @abstractmethod
     def get_lr(self, step: jax.Array) -> jax.Array:
-        """Return the learning rate for a given step (pure function)."""
+        """Return the learning rate for a given step."""
 
     def __call__(self, step: jax.Array) -> jax.Array:
         return self.get_lr(jnp.array(step))
@@ -85,21 +85,21 @@ def _expects_state(schedule: Callable[..., object]) -> bool:
 
 
 def as_scheduler(
-    step_size: float | jax.Array | Callable[[jax.Array], jax.Array] | LRScheduler,
+    lr: float | jax.Array | Callable[[jax.Array], jax.Array] | LRScheduler,
 ) -> LRScheduler:
     """Coerce a learning-rate input into an LRScheduler."""
-    if isinstance(step_size, LRScheduler):
-        return step_size
-    if callable(step_size):
+    if isinstance(lr, LRScheduler):
+        return lr
+    if callable(lr):
         schedule = cast(
-            Callable[[jax.Array], jax.Array], step_size
+            Callable[[jax.Array], jax.Array], lr
         )  # cast for type hinting for ty
         return LambdaLR(base_lr=1.0, lr_lambda=schedule)
-    return ConstantLR(step_size)
+    return ConstantLR(lr)
 
 
 def as_schedule(
-    step_size: float
+    lr: float
     | jax.Array
     | Callable[[jax.Array], jax.Array]
     | Callable[[jax.Array, object], tuple[jax.Array, object]]
@@ -113,23 +113,30 @@ def as_schedule(
     Returns a function `(step, state) -> (lr, new_state)` and the initial state.
     If the schedule is stateless, the state is passed through unchanged.
     """
-    if callable(step_size) and not isinstance(step_size, LRScheduler):
-        if schedule_state is None and _expects_state(step_size):
+    if callable(lr) and not isinstance(lr, LRScheduler):
+        needs_state = _expects_state(lr)
+        if schedule_state is None and needs_state:
             raise ValueError(
                 "schedule_state must be provided for a stateful schedule function."
             )
-        if schedule_state is not None and _expects_state(step_size):
-            schedule_fn = step_size
+        if schedule_state is not None and needs_state:
+            stateful = cast(Callable[[jax.Array, object], tuple[jax.Array, object]], lr)
+
+            def scheduler(step, state):
+                lr_val, new_state = stateful(step, state)
+                return lr_val, new_state
+
         else:
+            stateless = cast(Callable[[jax.Array], jax.Array], lr)
 
-            def schedule_fn(step, state):
-                return step_size(step), state
+            def scheduler(step, state):
+                return stateless(step), state
 
-        return schedule_fn, schedule_state
+        return scheduler, schedule_state
 
-    scheduler = as_scheduler(step_size)
+    lr_scheduler = as_scheduler(lr)
 
-    def schedule_fn(step, state):
-        return scheduler(step), state
+    def scheduler(step, state):
+        return lr_scheduler(step), state
 
-    return schedule_fn, schedule_state
+    return scheduler, schedule_state

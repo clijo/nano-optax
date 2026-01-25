@@ -88,28 +88,23 @@ class SGD(Solver):
     where $\mathcal{B}_t$ is a randomly sampled minibatch at step $t$.
 
     An **epoch** is one complete pass over the dataset, so $\lceil \#(\mathcal{D}) / \text{batch_size} \rceil$ gradient steps.
-
-    Attributes:
-        step_size: Learning rate (constant, schedule, or LRScheduler).
-        max_epochs: Maximum number of training epochs.
-        tol: Convergence tolerance on epoch value change.
-        verbose: Whether to print training progress.
     """
 
     def __init__(
         self,
-        step_size: LearningRate = 1e-3,
+        lr: LearningRate = 1e-3,
         max_epochs: int = 100,
         **kwargs,
     ) -> None:
         """
         Args:
-            step_size: The learning rate. Can be a float for constant LR,
-                a callable `schedule(step) -> float`, or an LRScheduler.
+            lr: Learning rate input. Can be a float for constant LR, a callable
+                `schedule(step) -> lr`, a callable
+                `schedule(step, state) -> (lr, new_state)`, or an LRScheduler.
             max_epochs: Maximum number of epochs to train.
             **kwargs: Base solver arguments (tol, verbose).
         """
-        super().__init__(step_size, **kwargs)
+        super().__init__(lr, **kwargs)
         self.max_epochs = max_epochs
 
     def minimize(
@@ -179,7 +174,7 @@ class SGD(Solver):
         num_full_batches = num_samples // batch_size
         remainder = num_samples % batch_size
 
-        schedule_fn, schedule_state = as_schedule(self.step_size, schedule_state)
+        scheduler, schedule_state = as_schedule(self.lr, schedule_state)
 
         if key is None:
             warnings.warn(
@@ -221,7 +216,7 @@ class SGD(Solver):
                     (params, step, schedule_state),
                     full_indices,
                     data,
-                    schedule_fn,
+                    scheduler,
                     fun,
                 )
                 total_sum += batch_sum * batch_size
@@ -230,7 +225,7 @@ class SGD(Solver):
             if remainder:
                 rem_indices = perm[num_full_batches * batch_size :]
                 (params, step, schedule_state), (val, last_lr) = _opt_step(
-                    (params, step, schedule_state), rem_indices, data, schedule_fn, fun
+                    (params, step, schedule_state), rem_indices, data, scheduler, fun
                 )
                 total_sum += val * remainder
 

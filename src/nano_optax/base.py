@@ -5,29 +5,22 @@ from .types import OptResult, PyTree, LearningRate
 
 
 class Solver(ABC):
-    """Abstract base class for all solvers in nano-optax.
-
-    Attributes:
-        step_size: Learning rate (constant or schedule).
-        tol: Convergence tolerance on loss change.
-        verbose: Whether to print progress during optimization.
-    """
+    """Abstract base class for all solvers in nano-optax."""
 
     def __init__(
         self,
-        step_size: LearningRate,
+        lr: LearningRate,
         tol: float = 1e-5,
         verbose: bool = False,
     ) -> None:
-        """Initialize the solver.
-
+        """
         Args:
-            step_size: The learning rate. Can be a float for constant LR,
+            lr: The learning rate. Can be a float for constant LR,
                 a callable `schedule(step) -> float`, or an LRScheduler.
             tol: Tolerance for convergence based on loss change.
             verbose: Whether to print progress during optimization.
         """
-        self.step_size = step_size
+        self.lr = lr
         self.tol = tol
         self.verbose = verbose
 

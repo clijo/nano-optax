@@ -20,30 +20,23 @@ class GD(Solver):
 
     where $\mathcal{D}$ is the entire dataset and $\eta_t$ is the learning rate
     at step $t$ (which may be constant or follow a schedule).
-
-    Attributes:
-        step_size: Learning rate (constant, schedule, or LRScheduler).
-        max_epochs: Maximum number of training epochs.
-        tol: Convergence tolerance on epoch value change.
-        verbose: Whether to print training progress.
     """
 
     def __init__(
         self,
-        step_size: LearningRate = 1e-3,
+        lr: LearningRate = 1e-3,
         max_epochs: int = 100,
         **kwargs,
     ) -> None:
-        """Initialize the GD solver.
-
+        """
         Args:
-            step_size: The learning rate. Can be a float for constant LR,
+            lr: The learning rate. Can be a float for constant LR,
                 a callable `schedule(step) -> float`, or an LRScheduler.
             max_epochs: Maximum number of epochs to train.
             **kwargs: Additional arguments passed to the base Solver
                 (e.g., `tol`, `verbose`).
         """
-        super().__init__(step_size, **kwargs)
+        super().__init__(lr, **kwargs)
         self.max_epochs = max_epochs
 
     def minimize(
@@ -68,7 +61,7 @@ class GD(Solver):
         """
         epochs = max_epochs if max_epochs is not None else self.max_epochs
 
-        schedule_fn, schedule_state = as_schedule(self.step_size, schedule_state)
+        scheduler, schedule_state = as_schedule(self.lr, schedule_state)
 
         @jax.jit
         def step(params, lr, *args):
@@ -80,7 +73,7 @@ class GD(Solver):
         trace = []
 
         for epoch in range(epochs):
-            lr, schedule_state = schedule_fn(jnp.array(epoch), schedule_state)
+            lr, schedule_state = scheduler(jnp.array(epoch), schedule_state)
             params, val = step(params, lr, *data)
             trace.append(float(val))
 

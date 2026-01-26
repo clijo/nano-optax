@@ -25,7 +25,7 @@ def _opt_step(
     r"""Single proximal gradient step on one minibatch.
 
     Args:
-        prox: Proximal operator of `g`, a callable, that takes $(x, \eta)$ and returns $\operatorname{prox}_{\eta g}(x)$.
+        prox: Proximal operator, a callable with signature $(x, \eta) \mapsto \operatorname{prox}_{\eta g}(x)$.
         carry: Tuple of (params, step_counter).
         indices: Indices selecting the minibatch from data.
         data: Full dataset as a tuple of arrays.
@@ -96,7 +96,7 @@ class ProxGD(Solver):
 
     where $f$ is convex and Lipschitz smooth and $g$ is proper, closed, and convex. Note that $g$ is assumed
     to be independent of the data (e.g. L1 penalty, L2 penalty).
-    $\operatorname{prox}_{\eta g}$ must be provided via the `prox` argument during initialization.
+    $\operatorname{prox}_{\eta g}$ must be provided via the `prox` argument, as a callable with signature $(x, \eta) \mapsto \operatorname{prox}_{\eta g}(x)$, in the `minimize` method.
 
     The iterates are updated as follows:
 
@@ -150,7 +150,7 @@ class ProxGD(Solver):
             fun: Smooth objective function with signature `f(params, *data) -> scalar`.
             g: Proper, closed, and convex objective component with signature
                 `g(params) -> scalar`.
-            prox: Proximal operator of `g`, a callable, that takes $(x, \eta)$ and returns $\operatorname{prox}_{\eta g}(x)$.
+            prox: Proximal operator, a callable with signature $(x, \eta) \mapsto \operatorname{prox}_{\eta g}(x)$.
             init_params: Initial parameters (PyTree).
             data: Tuple of data arrays (e.g., `(X, y)`). All arrays must have
                 the same length along axis 0 (number of samples).

@@ -1,18 +1,24 @@
-from nano_optax.gd import GD
-from nano_optax.prox_gd import ProxGD, ProxL1, ProxL2
-from nano_optax.schedulers import ConstantLR, LambdaLR, LRScheduler, StepLR
-from nano_optax.sgd import SGD
-from nano_optax.types import OptResult
+from .apgd import apgd
+from .gd import gd
+from .sgd import sgd
+from .prox_gd import prox_gd, prox_l1, prox_l2
+from .schedulers import as_schedule, constant_lr, lambda_lr, step_lr
+from .types import LearningRate, OptResult, PyTree, ScheduleFn, ScheduleState
 
 __all__ = [
-    "GD",
-    "SGD",
-    "ProxGD",
-    "ProxL1",
-    "ProxL2",
+    "apgd",
+    "gd",
+    "sgd",
+    "prox_gd",
+    "prox_l1",
+    "prox_l2",
+    "constant_lr",
+    "lambda_lr",
+    "step_lr",
+    "as_schedule",
     "OptResult",
-    "LRScheduler",
-    "ConstantLR",
-    "LambdaLR",
-    "StepLR",
+    "PyTree",
+    "ScheduleFn",
+    "ScheduleState",
+    "LearningRate",
 ]

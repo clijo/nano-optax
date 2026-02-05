@@ -1,88 +1,113 @@
+from __future__ import annotations
+
+from typing import Callable, NamedTuple
+
 import jax
 import jax.numpy as jnp
-from typing import Callable
 
-from .base import Solver
 from .schedulers import as_schedule
-from .types import OptResult, PyTree, LearningRate, ScheduleState
+from .types import LearningRate, OptResult, PyTree, ScheduleState
 
 
-class GD(Solver):
-    r"""Vanilla Gradient Descent (GD) solver.
+class GDState(NamedTuple):
+    params: PyTree
+    schedule_state: ScheduleState | None
+    step: jax.Array
+    value: jax.Array
+    converged: jax.Array
 
-    Updates parameters using the full dataset at each step.
 
-    The update rule for parameter $\theta$ at step $t$ is:
+def gd(
+    fun: Callable[..., jax.Array],
+    init_params: PyTree,
+    data: tuple = (),
+    *,
+    lr: LearningRate = 1e-3,
+    max_epochs: int = 100,
+    tol: float = 1e-6,
+    schedule_state: ScheduleState | None = None,
+    verbose: bool = False,
+) -> OptResult:
+    """Run vanilla gradient descent.
 
-    $$
-    \theta_{t+1} := \theta_t - \eta_t \nabla \mathcal{L}(\theta_t; \mathcal{D})
-    $$
+    Args:
+        fun: Objective function `f(params, *data) -> value`.
+        init_params: Initial parameters (PyTree).
+        data: Tuple of data arrays.
+        lr: Learning rate (constant, schedule, or stateful schedule).
+        max_epochs: Number of epochs to run.
+        tol: Convergence tolerance on gradient norm.
+        schedule_state: Optional initial state for a stateful schedule.
+        verbose: Print progress during optimization.
 
-    where $\mathcal{D}$ is the entire dataset and $\eta_t$ is the learning rate
-    at step $t$ (which may be constant or follow a schedule).
+    Returns:
+        OptResult with final parameters, value, and trace.
     """
+    scheduler, schedule_state = as_schedule(lr, schedule_state)
+    tol_val = jnp.asarray(tol)
 
-    def __init__(
-        self,
-        lr: LearningRate = 1e-3,
-        max_epochs: int = 100,
-        **kwargs,
-    ) -> None:
-        """
-        Args:
-            lr: The learning rate. Can be a float for constant LR,
-                a callable `schedule(step) -> float`, or an LRScheduler.
-            max_epochs: Maximum number of epochs to train.
-            **kwargs: Additional arguments passed to the base Solver
-                (e.g., `tol`, `verbose`).
-        """
-        super().__init__(lr, **kwargs)
-        self.max_epochs = max_epochs
+    init_val = fun(init_params, *data)
 
-    def minimize(
-        self,
-        fun: Callable,
-        init_params: PyTree,
-        data: tuple,
-        max_epochs: int | None = None,
-        schedule_state: ScheduleState | None = None,
-    ) -> OptResult:
-        """Minimize the function using vanilla Gradient Descent.
+    init_state = GDState(
+        params=init_params,
+        schedule_state=schedule_state,
+        step=jnp.array(0, dtype=jnp.int32),
+        value=init_val,
+        converged=jnp.array(False, dtype=jnp.bool_),
+    )
 
-        Args:
-            fun: A function f(params, *data) -> loss.
-            init_params: Initial parameters (PyTree).
-            data: Tuple of data arrays (e.g., (X, y)).
-            max_epochs: Override the instance's max_epochs.
-            schedule_state: Optional initial state for a stateful schedule.
+    def scan_body(carry: GDState, _):
+        params, sched_state, step, prev_val, converged = carry
 
-        Returns:
-            The optimization result.
-        """
-        epochs = max_epochs if max_epochs is not None else self.max_epochs
+        def perform_step(operand):
+            p, s_state, s = operand
+            lr_val, new_s_state = scheduler(s, s_state)
+            val, grads = jax.value_and_grad(fun)(p, *data)
 
-        scheduler, schedule_state = as_schedule(self.lr, schedule_state)
+            sq_norm_grads = jax.tree_util.tree_reduce(
+                jnp.add, jax.tree.map(lambda g: jnp.sum(g**2), grads)
+            )
+            grad_norm = jnp.sqrt(sq_norm_grads)
 
-        @jax.jit
-        def step(params, lr, *args):
-            val, grads = jax.value_and_grad(fun)(params, *args)
-            new_params = jax.tree.map(lambda p, g: p - lr * g, params, grads)
-            return new_params, val
+            new_p = jax.tree.map(lambda p_i, g_i: p_i - lr_val * g_i, p, grads)
 
-        params = init_params
-        trace = []
+            just_converged = grad_norm < tol_val
+            final_p = jax.tree.map(
+                lambda old, new: jnp.where(just_converged, old, new), p, new_p
+            )
 
-        for epoch in range(epochs):
-            lr, schedule_state = scheduler(jnp.array(epoch), schedule_state)
-            params, val = step(params, lr, *data)
-            trace.append(float(val))
+            return final_p, new_s_state, s + 1, val, just_converged
 
-            if self.verbose:
-                print(f"Epoch {epoch}: val={trace[-1]:.6e}, lr={float(lr):.6e}")
+        def skip_step(operand):
+            p, s_state, s = operand
+            return p, s_state, s, prev_val, jnp.array(True, dtype=jnp.bool_)
 
-            if epoch > 0 and abs(trace[-2] - trace[-1]) < self.tol:
-                if self.verbose:
-                    print(f"Converged at epoch {epoch}")
-                break
+        new_params, new_sched_state, new_step, new_val, now_converged = jax.lax.cond(
+            converged,
+            skip_step,
+            perform_step,
+            (params, sched_state, step),
+        )
 
-        return OptResult(params=params, final_value=trace[-1], trace=trace)
+        new_state = GDState(
+            params=new_params,
+            schedule_state=new_sched_state,
+            step=new_step,
+            value=new_val,
+            converged=now_converged,
+        )
+
+        if verbose:
+            jax.debug.print("Epoch {}: value={}", new_step, new_val)
+
+        return new_state, new_val
+
+    final_state, trace = jax.lax.scan(scan_body, init_state, None, length=max_epochs)
+    final_value = fun(final_state.params, *data)
+
+    return OptResult(
+        params=final_state.params,
+        final_value=final_value,
+        trace=trace,
+        success=final_state.converged,
+    )

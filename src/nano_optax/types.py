@@ -1,27 +1,18 @@
-from typing import Any, Callable, NamedTuple, Union, TYPE_CHECKING
+from typing import Any, Callable, NamedTuple
 
 import jax
 
 PyTree = Any
 """Type alias for JAX PyTrees (nested structures of arrays)."""
 
-if TYPE_CHECKING:
-    from .schedulers import LRScheduler
-
 ScheduleState = PyTree
-"""State carried by a schedule function."""
+"""State carried by a schedule function (must be a JAX PyTree)."""
 
 ScheduleFn = Callable[[jax.Array, ScheduleState], tuple[jax.Array, ScheduleState]]
 """Schedule function that returns (lr, new_state)."""
 
-LearningRate = Union[
-    float,
-    jax.Array,
-    Callable[[jax.Array], jax.Array],
-    "LRScheduler",
-    ScheduleFn,
-]
-"""Learning rate: constant, schedule function, or scheduler."""
+LearningRate = float | jax.Array | Callable[[jax.Array], jax.Array] | ScheduleFn
+"""Learning rate: constant, stateless schedule, or stateful schedule."""
 
 
 class OptResult(NamedTuple):
@@ -29,12 +20,12 @@ class OptResult(NamedTuple):
 
     Attributes:
         params: Final optimized parameters.
-        final_value: Final objective value.
-        trace: History of objective values per epoch.
-        success: Whether optimization terminated without errors.
+        final_value: Objective value at the returned parameters.
+        trace: Objective values per epoch at the update evaluation point.
+        success: Whether the convergence criterion was met.
     """
 
     params: PyTree
-    final_value: float
-    trace: list[float]
-    success: bool = True
+    final_value: jax.Array
+    trace: jax.Array
+    success: bool | jax.Array = True

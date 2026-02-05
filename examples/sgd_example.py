@@ -1,6 +1,6 @@
 import jax
 import jax.numpy as jnp
-from nano_optax import SGD, StepLR
+from nano_optax import sgd, step_lr
 
 
 def run_test():
@@ -25,7 +25,7 @@ def run_test():
 
     data = (X, y)
 
-    def loss_fun(params, x, y):
+    def fun(params, x, y):
         # 2-layer MLP with tanh nonlinearity.
         h = jnp.tanh(x @ params["W1"] + params["b1"])
         pred = h @ params["W2"] + params["b2"]
@@ -40,18 +40,17 @@ def run_test():
         "b2": jnp.zeros((1,)),
     }
 
-    solver = SGD(
-        # StepLR counts minibatch steps (not epochs), so use a larger step_size.
-        step_size=StepLR(base_lr=0.1, step_size=1000, gamma=0.5),
-        max_epochs=500,
-        verbose=True,
-        tol=1e-6,
-    )
-
     print("Starting minimization (nonlinear regression with minibatches)...")
     try:
-        result = solver.minimize(
-            loss_fun, init_params, data, batch_size=32, key=jax.random.PRNGKey(42)
+        result = sgd(
+            fun,
+            init_params,
+            data,
+            lr=step_lr(base_lr=0.1, step_size=1000, gamma=0.5),
+            max_epochs=500,
+            batch_size=32,
+            key=jax.random.PRNGKey(42),
+            verbose=True,
         )
         print("Final value:", result.final_value)
 

@@ -1,5 +1,5 @@
 import jax.numpy as jnp
-from nano_optax import GD
+from nano_optax import gd
 
 
 def run_test():
@@ -9,18 +9,16 @@ def run_test():
     data = (X, y)
 
     # linear model: y = w*x
-    def loss_fun(params, x, y):
+    def fun(params, x, y):
         # params is a dict (PyTree)
         pred = x @ params["w"]
         return jnp.mean((pred - y) ** 2)
 
     init_params = {"w": jnp.array([0.0])}
 
-    solver = GD(step_size=0.01, max_epochs=20, verbose=True)
-
     print("Starting minimization (Vanilla GD)...")
     try:
-        result = solver.minimize(loss_fun, init_params, data)
+        result = gd(fun, init_params, data, lr=0.01, max_epochs=20, verbose=True)
         print("Final params:", result.params)
         print("Final value:", result.final_value)
     except Exception as e:

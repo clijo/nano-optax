@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 
-from nano_optax import ProxGD, ProxL1
+from nano_optax import prox_gd, prox_l1
 
 
 def run_test():
@@ -20,32 +20,27 @@ def run_test():
 
     data = (X, y)
 
-    def smooth_loss(w, x, y):
+    def smooth_fun(w, x, y):
         residual = x @ w - y
         return 0.5 * jnp.mean(residual**2)
 
-    def nonsmooth_loss(w):
+    def nonsmooth_fun(w):
         return reg * jnp.sum(jnp.abs(w))
 
     init_params = jnp.zeros((num_features,))
 
-    solver = ProxGD(
-        lr=0.1,
-        max_epochs=200,
-        verbose=True,
-        tol=1e-6,
-    )
-
     print("Starting minimization (L1-regularized least squares)...")
     try:
-        result = solver.minimize(
-            smooth_loss,
-            nonsmooth_loss,
-            ProxL1(reg),
+        result = prox_gd(
+            smooth_fun,
+            nonsmooth_fun,
+            prox_l1(reg),
             init_params,
             data,
-            batch_size=None,
-            key=key,
+            lr=0.1,
+            max_epochs=200,
+            tol=1e-6,
+            verbose=True,
         )
         print("Final value (full objective):", result.final_value)
         print("True w (first 5):", jax.device_get(true_w[:5]))

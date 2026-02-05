@@ -1,5 +1,7 @@
 site_name: Nano Optax
 
+repo_url: https://github.com/clijo/nano-optax
+
 nav:
   - Home: index.md
   - Reference:
@@ -43,6 +45,7 @@ plugins:
             show_symbol_type_toc: true
             members_order: source
             merge_init_into_class: true
+            inherited_members: true
             show_root_heading: true
             show_root_full_path: false
 
@@ -62,3 +65,8 @@ markdown_extensions:
 extra_javascript:
   - javascripts/mathjax.js
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+watch:
+  - ./docs
+  - src
+

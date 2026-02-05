@@ -1,45 +1,40 @@
 # Schedulers
 
-Learning-rate schedulers define how the step size changes over time.
-In `nano-optax`, schedulers are pure functions of `step` and optional state:
-
-```python
-lr = scheduler(step)
-```
+Learning-rate schedules in `nano-optax` are **pure functions of step**. You
+can pass any callable `schedule(step) -> lr` to a solver, or use the helpers
+below.
 
 ## Quick Usage
 
 ```python
-from nano_optax import StepLR, SGD
+from nano_optax import sgd, step_lr
 
-scheduler = StepLR(base_lr=0.1, step_size=1000, gamma=0.5)
-solver = SGD(step_size=scheduler)
+schedule = step_lr(base_lr=0.1, step_size=1000, gamma=0.5)
+result = sgd(fun, init_params, data, lr=schedule, batch_size=16)
 ```
 
-`StepLR` **counts minibatch steps**, not epochs. If you want to decay every
+`step_lr` **counts minibatch steps**, not epochs. If you want to decay every
 `N` epochs, set `step_size = N * batches_per_epoch`.
 
 ## Built-in Schedulers
 
-- `ConstantLR`: fixed learning rate.
-- `LambdaLR`: user-defined schedule function.
-- `StepLR`: multiplicative decay every `step_size` steps.
+- `constant_lr`: fixed learning rate.
+- `lambda_lr`: user-defined schedule function.
+- `step_lr`: multiplicative decay every `step_size` steps.
 
-## LambdaLR Example
+## Lambda Example
 
 ```python
 import jax.numpy as jnp
-from nano_optax import LambdaLR
+from nano_optax import lambda_lr
 
-schedule = LambdaLR(
-    base_lr=0.1,
-    lr_lambda=lambda step: jnp.exp(-0.001 * step),
-)
+schedule = lambda_lr(lambda step: jnp.exp(-0.001 * step))
 ```
 
 ## Stateful Schedule Example
 
-If you need schedules that depend on previous values, pass an explicit schedule state and return `(lr, new_state)`:
+If you need schedules that depend on previous values, pass a stateful schedule
+function `(step, state) -> (lr, new_state)` and an initial `schedule_state`:
 
 ```python
 import jax.numpy as jnp
@@ -50,11 +45,11 @@ def adaptive_schedule(step, state):
     return lr, {"lr": new_lr}
 ```
 
-Use it by passing `schedule_state` to `minimize`.
+Use it by passing `schedule_state` to the solver.
 
 ## API
 
-::: nano_optax.schedulers.LRScheduler
-::: nano_optax.schedulers.ConstantLR
-::: nano_optax.schedulers.LambdaLR
-::: nano_optax.schedulers.StepLR
+::: nano_optax.schedulers.constant_lr
+::: nano_optax.schedulers.lambda_lr
+::: nano_optax.schedulers.step_lr
+::: nano_optax.schedulers.as_schedule

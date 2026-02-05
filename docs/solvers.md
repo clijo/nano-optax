@@ -1,39 +1,44 @@
 # Solvers
 
-All solvers in `nano-optax` follow a **Scipy-like interface**. The pattern is:
-
-1.  Instantiate a **Solver** object (e.g., `SGD`) with hyperparameters.
-2.  Call the `.minimize()` method with your loss function and parameters.
+All solvers in `nano-optax` are **pure functions**. Each solver takes an
+objective `f(params, *data)` and returns an `OptResult` with final parameters,
+final objective value, and a per-epoch trace.
 
 ```python
-solver = SGD(step_size=0.01)
-result = solver.minimize(loss_fun, params, data)
+from nano_optax import gd
+
+result = gd(fun, init_params, data, lr=1e-2, max_epochs=100)
 ```
 
-To use stateful schedules, pass `schedule_state` and a schedule function that returns `(lr, new_state)`.
+If you want to use a **stateful schedule**, pass a schedule function with
+signature `(step, state) -> (lr, new_state)` and provide `schedule_state`.
 
 ## Gradient Descent
 
-::: nano_optax.gd.GD
+::: nano_optax.gd.gd
 
 ## Stochastic Gradient Descent
 
-::: nano_optax.sgd.SGD
+::: nano_optax.sgd.sgd
 
 ## Proximal Gradient Descent
 
-::: nano_optax.prox_gd.ProxGD
+::: nano_optax.prox_gd.prox_gd
 
 ### Proximal operators
-
-Use these helpers to build `prox` functions for `ProxGD`.
+`prox_gd` expects an uncurried prox operator $(x,\eta)\mapsto \operatorname{prox}_{\eta g}(x)$.
+Two helpers are included:
 
 ```python
-prox_l1 = ProxL1(reg=1.0)
-prox_l2 = ProxL2(reg=0.1)
+from nano_optax import prox_l1, prox_l2
+
+prox_l1_op = prox_l1(reg=1.0)
+prox_l2_op = prox_l2(reg=0.1)
 ```
 
-::: nano_optax.prox_gd.ProxL1
+::: nano_optax.prox_gd.prox_l1
+::: nano_optax.prox_gd.prox_l2
 
-::: nano_optax.prox_gd.ProxL2
+## Accelerated Proximal Gradient Descent (FISTA)
 
+::: nano_optax.apgd.apgd
